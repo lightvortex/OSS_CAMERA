@@ -624,7 +624,10 @@ typedef struct cam_capability{
     int32_t optical_black_regions[MAX_OPTICAL_BLACK_REGIONS * 4];
     /* Count is K/4 */
     uint8_t optical_black_region_count;
-
+    
+    /* nubia hack */
+    volatile char         nubia_reserved[108];
+    
     /* hot pixel */
     uint8_t hotPixel_mode;
     uint32_t hotPixel_count;
@@ -1192,6 +1195,28 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_BOKEH_MODE,                   uint8_t,                     1);
     INCLUDE(CAM_INTF_META_USERZOOM,                     cam_zoom_info_t,             1);
     INCLUDE(CAM_INTF_META_TUNING_PARAMS,                tuning_params_t,             1);
+    
+    /* Nubia hack */
+    volatile char nubia_reserved_1[4];
+    INCLUDE(NUBIA_02,                                   uint8_t,                     1);
+    volatile char nubia_reserved_2[3];
+    INCLUDE(NUBIA_06,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_03,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_04,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_05,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_07,                                   uint8_t,                     24);
+    INCLUDE(NUBIA_08,                                   uint8_t,                     60);
+    INCLUDE(NUBIA_09,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_10,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_11,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_12,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_13,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_14,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_15,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_16,                                   uint8_t,                     1);
+    volatile char nubia_reserved_3[3];
+    INCLUDE(NUBIA_17,                                   uint8_t,                     4);
+    INCLUDE(NUBIA_18,                                   uint8_t,                     4);
 } metadata_data_t;
 
 /* Update clear_metadata_buffer() function when a new is_xxx_valid is added to
