@@ -88,8 +88,6 @@ typedef struct {
     cam_sync_type_t type[MAX_NUM_CAMERA_PER_BUNDLE];
     // Signifies mode of each camera
     cam_sync_mode_t mode[MAX_NUM_CAMERA_PER_BUNDLE];
-    // Signifies mode of each 3a used by the camera
-    cam_3a_sync_mode_t sync_3a[MAX_NUM_CAMERA_PER_BUNDLE];
 } qcamera_logical_descriptor_t;
 
 /* Struct@ cam_compose_jpeg_info_t
@@ -249,8 +247,6 @@ private:
     bool m_bMpoEnabled;
     // Signifies if frame sync is enabled
     bool m_bFrameSyncEnabled;
-    // flag to indicate whether recording hint is internally set.
-    bool m_bRecordingHintInternallySet;
 
     /* Private Member Methods */
     int setupLogicalCameras();
@@ -265,8 +261,6 @@ private:
             struct camera_device * device);
     qcamera_physical_descriptor_t* getPhysicalCamera(
             qcamera_logical_descriptor_t* log_cam, uint32_t index);
-    int32_t getActiveNumOfPhyCam(
-            qcamera_logical_descriptor_t* log_cam, int& numOfAcitvePhyCam);
     int32_t setMpoCallbackCookie(void* mpoCbCookie);
     void* getMpoCallbackCookie();
     int32_t setMainJpegCallbackCookie(void* jpegCbCookie);

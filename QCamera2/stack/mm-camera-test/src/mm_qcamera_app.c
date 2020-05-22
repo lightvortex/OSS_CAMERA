@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,8 +34,6 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
 #include <linux/msm_ion.h>
 #define MMAN_H <SYSTEM_HEADER_PREFIX/mman.h>
 #include MMAN_H
@@ -110,9 +108,7 @@ int mm_app_load_hal(mm_camera_app_t *my_cam_app)
         return -MM_CAMERA_E_GENERAL;
     }
 
-    if (my_cam_app->num_cameras == 0) {
-        my_cam_app->num_cameras = my_cam_app->hal_lib.get_num_of_cameras();
-    }
+    my_cam_app->num_cameras = my_cam_app->hal_lib.get_num_of_cameras();
     LOGD("num_cameras = %d\n",  my_cam_app->num_cameras);
 
     return MM_CAMERA_OK;
@@ -415,7 +411,6 @@ int mm_app_stream_initbuf(cam_frame_len_offset_t *frame_offset_info,
                               -1,
                               pBufs[i].fd,
                               (uint32_t)pBufs[i].frame_len,
-                              pBufs[i].buffer,
                               CAM_MAPPING_BUF_TYPE_STREAM_BUF, ops_tbl->userdata);
         if (rc != MM_CAMERA_OK) {
             LOGE("mapping buf[%d] err = %d",  i, rc);
@@ -472,12 +467,6 @@ int32_t mm_app_stream_invalidate_buf(uint32_t index, void *user_data)
 {
     mm_camera_stream_t *stream = (mm_camera_stream_t *)user_data;
     return mm_app_cache_ops(&stream->s_bufs[index].mem_info, ION_IOC_INV_CACHES);
-}
-
-int32_t mm_app_stream_clean_buf(uint32_t index, void *user_data)
-{
-    mm_camera_stream_t *stream = (mm_camera_stream_t *)user_data;
-    return mm_app_cache_ops(&stream->s_bufs[index].mem_info, ION_IOC_CLEAN_CACHES);
 }
 
 static void notify_evt_cb(uint32_t camera_handle,
@@ -541,8 +530,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
     rc = test_obj->cam->ops->map_buf(test_obj->cam->camera_handle,
                                      CAM_MAPPING_BUF_TYPE_CAPABILITY,
                                      test_obj->cap_buf.mem_info.fd,
-                                     test_obj->cap_buf.mem_info.size,
-                                     test_obj->cap_buf.buf.buffer);
+                                     test_obj->cap_buf.mem_info.size);
     if (rc != MM_CAMERA_OK) {
         LOGE("map for capability error\n");
         goto error_after_cap_buf_alloc;
@@ -565,8 +553,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
     rc = test_obj->cam->ops->map_buf(test_obj->cam->camera_handle,
                                      CAM_MAPPING_BUF_TYPE_PARM_BUF,
                                      test_obj->parm_buf.mem_info.fd,
-                                     test_obj->parm_buf.mem_info.size,
-                                     test_obj->parm_buf.buf.buffer);
+                                     test_obj->parm_buf.mem_info.size);
     if (rc != MM_CAMERA_OK) {
         LOGE("map getparm_buf error\n");
         goto error_after_getparm_buf_alloc;
@@ -590,16 +577,6 @@ int mm_app_open(mm_camera_app_t *cam_app,
         goto error_after_getparm_buf_map;
     }
     memset(&test_obj->jpeg_ops, 0, sizeof(mm_jpeg_ops_t));
-    test_obj->mExifParams.debug_params = \
-        (mm_jpeg_debug_exif_params_t *) malloc (sizeof(mm_jpeg_debug_exif_params_t));
-    if (test_obj->mExifParams.debug_params != NULL) {
-        memset(test_obj->mExifParams.debug_params, 0,
-           sizeof(mm_jpeg_debug_exif_params_t));
-    } else {
-        LOGE("debug params alloc fail");
-        rc = -MM_CAMERA_E_GENERAL;
-        goto error_after_getparm_buf_map;
-    }
     mm_dimension pic_size;
     memset(&pic_size, 0, sizeof(mm_dimension));
     pic_size.w = 4000;
@@ -712,11 +689,6 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
         LOGE("release setparm buf failed, rc=%d",  rc);
     }
 
-    if (test_obj->mExifParams.debug_params) {
-        free(test_obj->mExifParams.debug_params);
-        test_obj->mExifParams.debug_params = NULL;
-   }
-
     return MM_CAMERA_OK;
 }
 
@@ -794,7 +766,7 @@ mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
                                             0,
                                             -1,
                                             stream->s_info_buf.mem_info.fd,
-                                            (uint32_t)stream->s_info_buf.mem_info.size, stream->s_info_buf.buf.buffer);
+                                            (uint32_t)stream->s_info_buf.mem_info.size);
     if (rc != MM_CAMERA_OK) {
         LOGE("map setparm_buf error\n");
         mm_app_deallocate_ion_memory(&stream->s_info_buf);
@@ -1121,33 +1093,6 @@ ERROR:
     return rc;
 }
 
-int updateDebuglevel(mm_camera_test_obj_t *test_obj)
-{
-
-    int rc = MM_CAMERA_OK;
-
-    rc = initBatchUpdate(test_obj);
-    if ( rc != MM_CAMERA_OK ) {
-        LOGE("Failed to initialize group update table");
-        return rc;
-    }
-
-    uint32_t dummyDebugLevel = 0;
-    if (ADD_SET_PARAM_ENTRY_TO_BATCH(test_obj->parm_buf.mem_info.data, CAM_INTF_PARM_UPDATE_DEBUG_LEVEL, dummyDebugLevel)) {
-        LOGE("Parameters batch failed");
-        rc = -1;
-        goto ERROR;
-    }
-
-    rc = commitSetBatch(test_obj);
-    if ( rc != MM_CAMERA_OK ) {
-        LOGE("Failed to commit batch parameters");
-        return rc;
-    }
-ERROR:
-    return rc;
- }
-
 int setEVCompensation(mm_camera_test_obj_t *test_obj, int ev)
 {
     int rc = MM_CAMERA_OK;
@@ -1215,113 +1160,7 @@ int setAntibanding(mm_camera_test_obj_t *test_obj, cam_antibanding_mode_type ant
 ERROR:
     return rc;
 }
-int setFlipMode(mm_camera_test_obj_t *test_obj, cam_flip_t mode)
-{
-    int rc = MM_CAMERA_OK;
-    uint32_t i = 0;
-    mm_camera_channel_t *channel = NULL;
-    mm_camera_stream_t *snapshot_stream = NULL;
-    mm_camera_stream_t *preview_stream = NULL;
-    cam_stream_parm_buffer_t param;
-    cam_stream_parm_buffer_t param2;
 
-    test_obj->flip_mode = mode;
-
-    memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
-    memset(&param2, 0, sizeof(cam_stream_parm_buffer_t));
-
-    if (test_obj->zsl_enabled)
-      channel =  &test_obj->channels[MM_CHANNEL_TYPE_ZSL];
-    else
-      channel =  &test_obj->channels[MM_CHANNEL_TYPE_PREVIEW];
-
-      /* find snapshot stream */
-      for (i = 0; i < channel->num_streams; i++) {
-          if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_SNAPSHOT) {
-              snapshot_stream = &channel->streams[i];
-              break;
-           }
-      }
-
-      /* find preview stream */
-      for (i = 0; i < channel->num_streams; i++) {
-          if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_PREVIEW) {
-              preview_stream = &channel->streams[i];
-              break;
-           }
-      }
-
-       param.type = CAM_STREAM_PARAM_TYPE_SET_FLIP;
-       param.flipInfo.flip_mask = mode;
-       param2.type = CAM_STREAM_PARAM_TYPE_SET_FLIP;
-       param2.flipInfo.flip_mask = mode;
-
-       if (preview_stream != NULL) {
-          preview_stream->s_config.stream_info->parm_buf = param;
-          rc = test_obj->cam->ops->set_stream_parms(test_obj->cam->camera_handle,
-                                              channel->ch_id,
-                                              preview_stream->s_id,
-                                              &preview_stream->s_config.stream_info->parm_buf );
-      }
-
-       if (snapshot_stream != NULL){
-          snapshot_stream->s_config.stream_info->parm_buf = param2;
-          rc = test_obj->cam->ops->set_stream_parms(test_obj->cam->camera_handle,
-                                              channel->ch_id,
-                                              snapshot_stream->s_id,
-                                              &snapshot_stream->s_config.stream_info->parm_buf );
-      }
-
-     if (rc != MM_CAMERA_OK) {
-        LOGE("Batch parameters commit failed\n");
-        goto ERROR;
-     }
-
-    LOGE("Flip Mode set to: %d",  (int)mode);
-
-ERROR:
-    return rc;
-}
-
-int setManualWhiteBalance(mm_camera_test_obj_t *test_obj, cam_manual_wb_parm_t *manual_info){
-
-    int rc = MM_CAMERA_OK;
-    cam_manual_wb_parm_t param;
-
-    rc = initBatchUpdate(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch camera parameter update failed\n");
-        goto ERROR;
-    }
-
-    memset(&param, 0, sizeof(cam_manual_wb_parm_t));
-    if (manual_info->type == CAM_MANUAL_WB_MODE_GAIN){
-        param.type = CAM_MANUAL_WB_MODE_GAIN;
-        param.gains.r_gain = manual_info->gains.r_gain;
-        param.gains.g_gain = manual_info->gains.g_gain;
-        param.gains.b_gain = manual_info->gains.b_gain;
-    }else {
-        param.type = CAM_MANUAL_WB_MODE_CCT;
-        param.cct = manual_info->cct;
-    }
-
-
-    if (ADD_SET_PARAM_ENTRY_TO_BATCH(test_obj->parm_buf.mem_info.data,
-            CAM_INTF_PARM_WB_MANUAL, param)) {
-        LOGE("Manual White balance parameter not added to batch\n");
-        rc = -1;
-        goto ERROR;
-    }
-
-    rc = commitSetBatch(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch parameters commit failed\n");
-        goto ERROR;
-    }
-
-ERROR:
-      return rc;
-}
 int setWhiteBalance(mm_camera_test_obj_t *test_obj, cam_wb_mode_type mode)
 {
     int rc = MM_CAMERA_OK;
@@ -1562,8 +1401,6 @@ ERROR:
 int setZoom(mm_camera_test_obj_t *test_obj, int zoom)
 {
     int rc = MM_CAMERA_OK;
-    cam_zoom_info_t zoomInfo;
-    memset(&zoomInfo, 0, sizeof(cam_zoom_info_t));
 
     rc = initBatchUpdate(test_obj);
     if (rc != MM_CAMERA_OK) {
@@ -1571,11 +1408,8 @@ int setZoom(mm_camera_test_obj_t *test_obj, int zoom)
         goto ERROR;
     }
 
-    zoomInfo.user_zoom = zoom;
-    zoomInfo.is_stream_zoom_info_valid = 0;
-
     if (ADD_SET_PARAM_ENTRY_TO_BATCH(test_obj->parm_buf.mem_info.data,
-            CAM_INTF_PARM_USERZOOM, zoomInfo)) {
+            CAM_INTF_PARM_ZOOM, zoom)) {
         LOGE("Zoom parameter not added to batch\n");
         rc = -1;
         goto ERROR;
@@ -1624,34 +1458,6 @@ ERROR:
     return rc;
 }
 
-int setEffect(mm_camera_test_obj_t *test_obj, cam_effect_mode_type effect)
-{
-    int rc = MM_CAMERA_OK;
-
-    rc = initBatchUpdate(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch camera parameter update failed\n");
-        goto ERROR;
-    }
-
-    if (ADD_SET_PARAM_ENTRY_TO_BATCH(test_obj->parm_buf.mem_info.data,
-            CAM_INTF_PARM_EFFECT, effect)) {
-        LOGE("Scene parameter not added to batch\n");
-        rc = -1;
-        goto ERROR;
-    }
-
-    rc = commitSetBatch(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch parameters commit failed\n");
-        goto ERROR;
-    }
-
-    LOGE("Scene set to: %d",  (int)effect);
-
-ERROR:
-    return rc;
-}
 int setScene(mm_camera_test_obj_t *test_obj, cam_scene_mode_type scene)
 {
     int rc = MM_CAMERA_OK;
@@ -1741,82 +1547,12 @@ int setWNR(mm_camera_test_obj_t *test_obj, uint8_t enable)
 
     test_obj->reproc_wnr = param;
     LOGE("WNR enabled: %d",  enable);
-ERROR:
-    return rc;
-}
-
-
-int setIRMode(mm_camera_test_obj_t *test_obj, cam_ir_mode_type_t ir_mode)
-{
-    int rc = MM_CAMERA_OK;
-
-    rc = initBatchUpdate(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch camera parameter update failed\n");
-        goto ERROR;
-    }
-
-    if (ADD_SET_PARAM_ENTRY_TO_BATCH(test_obj->parm_buf.mem_info.data,
-            CAM_INTF_META_IR_MODE, ir_mode)) {
-        LOGE("Flash parameter not added to batch\n");
-        rc = -1;
-        goto ERROR;
-    }
-
-    rc = commitSetBatch(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch parameters commit failed\n");
-        goto ERROR;
-    }
-
-    LOGE("IR LED set to: %d",  (int)ir_mode);
-
-ERROR:
-    return rc;
-}
-
-int setsHDRMode(mm_camera_test_obj_t *test_obj, uint8_t shdr_mode)
-{
-    int rc = MM_CAMERA_OK;
-   cam_sensor_hdr_type_t vhdr_type = CAM_SENSOR_HDR_MAX;
-
-    rc = initBatchUpdate(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch camera parameter update failed\n");
-        goto ERROR;
-    }
-
-   if (shdr_mode) {
-        vhdr_type = CAM_SENSOR_HDR_STAGGERED;
-   } else {
-        vhdr_type = CAM_SENSOR_HDR_OFF;
-   }
-    if (ADD_SET_PARAM_ENTRY_TO_BATCH(test_obj->parm_buf.mem_info.data,
-            CAM_INTF_PARM_SENSOR_HDR, vhdr_type)) {
-        LOGE("Flash parameter not added to batch\n");
-        rc = -1;
-        goto ERROR;
-    }
-
-    rc = commitSetBatch(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        LOGE("Batch parameters commit failed\n");
-        goto ERROR;
-    }
-
-    LOGE("sHDR set to: %d",  (int)shdr_mode);
 
 ERROR:
     return rc;
 }
 
 
-
-int setEZTune(mm_camera_test_obj_t *test_obj, uint8_t enable)
-{
-    test_obj->enable_EZTune = enable;
-    return 0;
-}
 /** tuneserver_capture
  *    @lib_handle: the camera handle object
  *    @dim: snapshot dimensions
@@ -1977,6 +1713,13 @@ int mm_camera_lib_open(mm_camera_lib_handle *handle, int cam_id)
         goto EXIT;
     }
 
+    memset(handle, 0, sizeof(mm_camera_lib_handle));
+    rc = mm_app_load_hal(&handle->app_ctx);
+    if( MM_CAMERA_OK != rc ) {
+        LOGE("mm_app_init err\n");
+        goto EXIT;
+    }
+
     handle->test_obj.buffer_width = DEFAULT_PREVIEW_WIDTH;
     handle->test_obj.buffer_height = DEFAULT_PREVIEW_HEIGHT;
     handle->test_obj.buffer_format = DEFAULT_SNAPSHOT_FORMAT;
@@ -2049,13 +1792,6 @@ int mm_camera_lib_start_stream(mm_camera_lib_handle *handle)
     if (rc != MM_CAMERA_OK) {
       LOGE("autofocus error\n");
       goto EXIT;
-    }
-
-    rc = updateDebuglevel(&handle->test_obj);
-
-    if (rc != MM_CAMERA_OK) {
-        LOGE("autofocus error\n");
-        goto EXIT;
     }
     handle->stream_running = 1;
 
@@ -2140,64 +1876,13 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
 
     switch(cmd) {
         case MM_CAMERA_LIB_FPS_RANGE:
-              if ( NULL != in_data ) {
-                 cam_fps_range_t range = *(( cam_fps_range_t * )in_data);
-                 rc = setFPSRange(&handle->test_obj, range);
-                 if (rc != MM_CAMERA_OK) {
-                    LOGE("setFPSRange() err=%d\n",
-                                  rc);
-                   goto EXIT;
-                }
-            }
-            break;
-        case MM_CAMERA_LIB_EZTUNE_ENABLE:
-            if ( NULL != in_data) {
-                int enable_eztune = *(( int * )in_data);
-                if ( ( enable_eztune != handle->test_obj.enable_EZTune) &&
-                        handle->stream_running ) {
-                    rc = mm_camera_lib_stop_stream(handle);
-                    if (rc != MM_CAMERA_OK) {
-                        LOGE("mm_camera_lib_stop_stream() err=%d\n",
+            if ( NULL != in_data ) {
+                cam_fps_range_t range = *(( cam_fps_range_t * )in_data);
+                rc = setFPSRange(&handle->test_obj, range);
+                if (rc != MM_CAMERA_OK) {
+                        LOGE("setFPSRange() err=%d\n",
                                     rc);
                         goto EXIT;
-                    }
-                    handle->test_obj.enable_EZTune= enable_eztune;
-                    rc = mm_camera_lib_start_stream(handle);
-                    if (rc != MM_CAMERA_OK) {
-                        LOGE("mm_camera_lib_start_stream() err=%d\n",
-                                    rc);
-                        goto EXIT;
-                    }
-                } else {
-                    handle->test_obj.enable_EZTune= enable_eztune;
-                }
-            }
-            break;
-        case MM_CAMERA_LIB_IRMODE:
-            if ( NULL != in_data) {
-                int enable_ir = *(( int * )in_data);
-                if (enable_ir != handle->test_obj.enable_ir) {
-                    handle->test_obj.enable_ir = enable_ir;
-                    rc = setIRMode(&handle->test_obj, enable_ir);
-                    if (rc != MM_CAMERA_OK) {
-                        LOGE("setZoom() err=%d\n",
-                                    rc);
-                        goto EXIT;
-                    }
-                }
-            }
-            break;
-        case MM_CAMERA_LIB_SHDR_MODE:
-            if ( NULL != in_data) {
-                int enable_shdr= *(( int * )in_data);
-                if (enable_shdr != handle->test_obj.enable_ir) {
-                    handle->test_obj.enable_ir = enable_shdr;
-                    rc = setsHDRMode(&handle->test_obj, enable_shdr);
-                    if (rc != MM_CAMERA_OK) {
-                        LOGE("setHDR() err=%d\n",
-                                    rc);
-                        goto EXIT;
-                    }
                 }
             }
             break;
@@ -2212,18 +1897,6 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 }
             }
             break;
-       case MM_CAMERA_LIB_SPL_EFFECT:
-           if (NULL != in_data) {
-               cam_effect_mode_type effect =  *(( int * )in_data);
-               rc = setEffect(&handle->test_obj, effect);
-
-               if (rc != MM_CAMERA_OK) {
-                        LOGE("setEffect() err=%d\n",
-                                    rc);
-                        goto EXIT;
-                }
-           }
-           break;
         case MM_CAMERA_LIB_BESTSHOT:
             if ( NULL != in_data ) {
                 cam_scene_mode_type scene = *(( int * )in_data);
@@ -2323,27 +1996,14 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 }
             }
             break;
-        case MM_CAMERA_LIB_MN_WB:
-            if ( NULL != in_data ) {
-                cam_manual_wb_parm_t *manual_info = (( cam_manual_wb_parm_t* )in_data);
-
-                rc = setManualWhiteBalance(&handle->test_obj, manual_info);
-                if (rc != MM_CAMERA_OK) {
-                      LOGE("etManualWhiteBalance() err=%d\n",
-                                    rc);
-                     goto EXIT;
-                }
-            }
-            break;
         case MM_CAMERA_LIB_WB:
             if ( NULL != in_data ) {
                 cam_wb_mode_type wb = *(( int * )in_data);
-
                 rc = setWhiteBalance(&handle->test_obj, wb);
                 if (rc != MM_CAMERA_OK) {
-                      LOGE("setWhiteBalance() err=%d\n",
+                        LOGE("setWhiteBalance() err=%d\n",
                                     rc);
-                     goto EXIT;
+                        goto EXIT;
                 }
             }
             break;
@@ -2353,17 +2013,6 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 rc = setAntibanding(&handle->test_obj, antibanding);
                 if (rc != MM_CAMERA_OK) {
                         LOGE("setAntibanding() err=%d\n",
-                                    rc);
-                        goto EXIT;
-                }
-            }
-            break;
-         case MM_CAMERA_LIB_FLIP:
-            if ( NULL != in_data ) {
-                int mode = *(( int * )in_data);
-                rc = setFlipMode(&handle->test_obj, mode);
-                if (rc != MM_CAMERA_OK) {
-                        LOGE("setFlipMode() err=%d\n",
                                     rc);
                         goto EXIT;
                 }
@@ -2382,8 +2031,8 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
             break;
         case MM_CAMERA_LIB_ZSL_ENABLE:
             if ( NULL != in_data) {
-                dim = ( mm_camera_lib_snapshot_params * ) in_data;
-                if ( ( dim->isZSL!= handle->test_obj.zsl_enabled ) &&
+                int enable_zsl = *(( int * )in_data);
+                if ( ( enable_zsl != handle->test_obj.zsl_enabled ) &&
                         handle->stream_running ) {
                     rc = mm_camera_lib_stop_stream(handle);
                     if (rc != MM_CAMERA_OK) {
@@ -2391,10 +2040,7 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                                     rc);
                         goto EXIT;
                     }
-                    handle->test_obj.zsl_enabled   = dim->isZSL;
-                    handle->test_obj.buffer_width  = dim->width;
-                    handle->test_obj.buffer_height = dim->height;
-
+                    handle->test_obj.zsl_enabled = enable_zsl;
                     rc = mm_camera_lib_start_stream(handle);
                     if (rc != MM_CAMERA_OK) {
                         LOGE("mm_camera_lib_start_stream() err=%d\n",
@@ -2402,7 +2048,7 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                         goto EXIT;
                     }
                 } else {
-                    handle->test_obj.zsl_enabled = dim->isZSL;
+                    handle->test_obj.zsl_enabled = enable_zsl;
                 }
             }
             break;
@@ -2439,6 +2085,7 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
             }
 
             mm_camera_app_wait();
+
             rc = mm_app_stop_capture_raw(&handle->test_obj);
             if (rc != MM_CAMERA_OK) {
                 LOGE("mm_app_stop_capture() err=%d\n",

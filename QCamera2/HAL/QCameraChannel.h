@@ -54,15 +54,13 @@ public:
     // Owner of memory is transferred from the caller to the caller with this call.
     virtual int32_t addStream(QCameraAllocator& allocator,
             QCameraHeapMemory *streamInfoBuf, QCameraHeapMemory *miscBuf,
-            cam_padding_info_t *paddingInfo,
+            uint8_t minStreamBufnum, cam_padding_info_t *paddingInfo,
             stream_cb_routine stream_cb, void *userdata, bool bDynAllocBuf,
-            bool bDeffAlloc = false, cam_rotation_t online_rotation = ROTATE_0,
-            uint32_t cam_type = MM_CAMERA_TYPE_MAIN);
+            bool bDeffAlloc = false, cam_rotation_t online_rotation = ROTATE_0);
     virtual int32_t linkStream(QCameraChannel *ch, QCameraStream *stream);
     virtual int32_t start();
     virtual int32_t stop();
     virtual int32_t bufDone(mm_camera_super_buf_t *recvd_frame);
-    virtual int32_t bufDone(mm_camera_super_buf_t *recvd_frame, uint32_t stream_id);
     virtual int32_t processZoomDone(preview_stream_ops_t *previewWindow,
                                     cam_crop_data_t &crop_info);
     QCameraStream *getStreamByHandle(uint32_t streamHandle);
@@ -74,15 +72,7 @@ public:
     void deleteChannel();
     int32_t setStreamSyncCB (cam_stream_type_t stream_type,
             stream_cb_routine stream_cb);
-    bool isActive() { return m_bIsActive; }
-    int32_t releaseFrame(const void *opaque, bool isMetaData, QCameraVideoMemory *videoMem);
-    uint32_t getChHandleForStream(cam_stream_type_t stream_type);
-    int32_t switchChannelCb(uint32_t camMaster);
-    int32_t processCameraControl(uint32_t camState, bool bundledSnapshot);
-    bool isDualChannel(){return mDualChannel;};
-    uint32_t getSnapshotHandle();
-    void initDCSettings(int32_t camState, uint32_t camMaster,
-        bool bundledSnapshot);
+
 protected:
     uint32_t m_camHandle;
     mm_camera_ops_t *m_camOps;
@@ -90,14 +80,9 @@ protected:
     bool m_bAllowDynBufAlloc; // if buf allocation can be in two steps
 
     uint32_t m_handle;
-    uint32_t mActiveCameras;
-    uint32_t mMasterCamera;
-    bool     mBundledSnapshot;
     Vector<QCameraStream *> mStreams;
     mm_camera_buf_notify_t mDataCB;
     void *mUserData;
-    Mutex mStreamLock;
-    bool mDualChannel;
 };
 
 // burst pic channel: i.e. zsl burst mode
@@ -113,7 +98,7 @@ public:
     int32_t stopAdvancedCapture(mm_camera_advanced_capture_t type);
     int32_t startAdvancedCapture(mm_camera_advanced_capture_t type,
             cam_capture_frame_config_t *config = NULL);
-    int32_t flushSuperbuffer(uint32_t cam, uint32_t frame_idx);
+    int32_t flushSuperbuffer(uint32_t frame_idx);
 };
 
 // video channel class
@@ -124,8 +109,6 @@ public:
                         mm_camera_ops_t *cam_ops);
     QCameraVideoChannel();
     virtual ~QCameraVideoChannel();
-    int32_t takePicture(mm_camera_req_buf_t *buf);
-    int32_t cancelPicture();
     int32_t releaseFrame(const void *opaque, bool isMetaData);
 };
 
@@ -152,18 +135,13 @@ public:
             uint8_t meta_buf_index);
 
     // offline reprocess
-    int32_t doReprocess(int buf_fd, void *buffer, size_t buf_length, int32_t &ret_val);
+    int32_t doReprocess(int buf_fd, size_t buf_length, int32_t &ret_val);
 
     int32_t doReprocessOffline(mm_camera_super_buf_t *frame,
-             mm_camera_buf_def_t *meta_buf, QCameraParametersIntf &param);
-
-    int32_t doReprocessOffline(mm_camera_buf_def_t *frame,
-             mm_camera_buf_def_t *meta_buf, QCameraStream *pStream = NULL);
+             mm_camera_buf_def_t *meta_buf);
 
     int32_t stop();
     QCameraChannel *getSrcChannel(){return m_pSrcChannel;};
-    int8_t getReprocCount(){return mPassCount;};
-    void setReprocCount(int8_t count) {mPassCount = count;};
 
 private:
     QCameraStream *getStreamBySrouceHandle(uint32_t srcHandle);
@@ -177,7 +155,7 @@ private:
     uint32_t mSrcStreamHandles[MAX_STREAM_NUM_IN_BUNDLE];
     QCameraChannel *m_pSrcChannel; // ptr to source channel for reprocess
     android::List<OfflineBuffer> mOfflineBuffers;
-    int8_t mPassCount;
+
 };
 
 }; // namespace qcamera

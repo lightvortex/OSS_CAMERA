@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -31,12 +31,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
 #define MMAN_H <SYSTEM_HEADER_PREFIX/mman.h>
 #include MMAN_H
-#include <cutils/properties.h>
-
 
 // Camera dependencies
 #include "mm_qcamera_app.h"
@@ -104,98 +100,9 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
         return;
     }
   }
-
   memcpy(pme->metadata, frame->buffer, sizeof(metadata_buffer_t));
 
   pMetadata = (metadata_buffer_t *)frame->buffer;
-
-  IF_META_AVAILABLE(uint32_t, flash_mode, CAM_INTF_META_FLASH_MODE, pMetadata) {
-      pme->mExifParams.sensor_params.flash_mode = (cam_flash_mode_t)*flash_mode;
-  }
-
-  IF_META_AVAILABLE(int32_t, flash_state, CAM_INTF_META_FLASH_STATE, pMetadata) {
-      pme->mExifParams.sensor_params.flash_state = (cam_flash_state_t) *flash_state;
-  }
-
-  IF_META_AVAILABLE(float, aperture_value, CAM_INTF_META_LENS_APERTURE, pMetadata) {
-      pme->mExifParams.sensor_params.aperture_value = *aperture_value;
-  }
-
-
-  IF_META_AVAILABLE(int32_t, wb_mode, CAM_INTF_PARM_WHITE_BALANCE, pMetadata) {
-      pme->mExifParams.cam_3a_params.wb_mode = (cam_wb_mode_type) *wb_mode;
-  }
-
-  IF_META_AVAILABLE(cam_sensor_params_t, sensor_params, CAM_INTF_META_SENSOR_INFO, pMetadata) {
-      pme->mExifParams.sensor_params = *sensor_params;
-  }
-
-  IF_META_AVAILABLE(cam_ae_exif_debug_t, ae_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_AE, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->ae_debug_params = *ae_exif_debug_params;
-          pme->mExifParams.debug_params->ae_debug_params_valid = TRUE;
-
-       }
-
-  }
-
-  IF_META_AVAILABLE(cam_awb_exif_debug_t, awb_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_AWB, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->awb_debug_params = *awb_exif_debug_params;
-          pme->mExifParams.debug_params->awb_debug_params_valid = TRUE;
-          LOGE("Storing AWB Metadata");
-      }
-  }
-
-  IF_META_AVAILABLE(cam_af_exif_debug_t, af_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_AF, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->af_debug_params = *af_exif_debug_params;
-          pme->mExifParams.debug_params->af_debug_params_valid = TRUE;
-      }
-  }
-
-  IF_META_AVAILABLE(cam_asd_exif_debug_t, asd_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_ASD, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->asd_debug_params = *asd_exif_debug_params;
-          pme->mExifParams.debug_params->asd_debug_params_valid = TRUE;
-      }
-  }
-
-  IF_META_AVAILABLE(cam_stats_buffer_exif_debug_t, stats_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_STATS, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->stats_debug_params = *stats_exif_debug_params;
-          pme->mExifParams.debug_params->stats_debug_params_valid = TRUE;
-      }
-  }
-
-  IF_META_AVAILABLE(cam_bestats_buffer_exif_debug_t, bestats_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_BESTATS, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->bestats_debug_params = *bestats_exif_debug_params;
-          pme->mExifParams.debug_params->bestats_debug_params_valid = TRUE;
-      }
-  }
-
-  IF_META_AVAILABLE(cam_bhist_buffer_exif_debug_t, bhist_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_BHIST, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->bhist_debug_params = *bhist_exif_debug_params;
-          pme->mExifParams.debug_params->bhist_debug_params_valid = TRUE;
-      }
-  }
-
-  IF_META_AVAILABLE(cam_q3a_tuning_info_t, q3a_tuning_exif_debug_params,
-          CAM_INTF_META_EXIF_DEBUG_3A_TUNING, pMetadata) {
-      if (pme->mExifParams.debug_params) {
-          pme->mExifParams.debug_params->q3a_tuning_debug_params = *q3a_tuning_exif_debug_params;
-          pme->mExifParams.debug_params->q3a_tuning_debug_params_valid = TRUE;
-      }
-  }
   IF_META_AVAILABLE(uint32_t, afState, CAM_INTF_META_AF_STATE, pMetadata) {
     if ((cam_af_state_t)(*afState) == CAM_AF_STATE_FOCUSED_LOCKED ||
             (cam_af_state_t)(*afState) == CAM_AF_STATE_NOT_FOCUSED_LOCKED) {
@@ -208,7 +115,7 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
   }
 
   if (pme->user_metadata_cb) {
-      LOGD("[DBG] user defined own metadata cb. calling it...");
+      LOGD("[DBG] %s, user defined own metadata cb. calling it...");
       pme->user_metadata_cb(frame);
   }
 
@@ -342,13 +249,10 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
     uint32_t i = 0;
-    char value[PROPERTY_VALUE_MAX];
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *p_stream = NULL;
     mm_camera_buf_def_t *frame = NULL;
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
-    property_get("persist.vendor.camera.dumpimg", value, "0");
-    uint32_t dump_preview = (uint32_t) atoi(value);
 
     if (NULL == bufs || NULL == user_data) {
         LOGE("bufs or user_data are not valid ");
@@ -392,15 +296,15 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
     if ( 0 < pme->fb_fd ) {
         mm_app_overlay_display(pme, frame->fd);
     }
-
-    if (dump_preview & QCAMERA_DUMP_FRM_PREVIEW) {
+#ifdef DUMP_PRV_IN_FILE
+    {
         char file_name[64];
         snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
         mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
-
+#endif
     if (pme->user_preview_cb) {
-        LOGD("[DBG]user defined own preview cb. calling it...");
+        LOGE("[DBG] %s, user defined own preview cb. calling it...");
         pme->user_preview_cb(frame);
     }
     if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
@@ -506,7 +410,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
           /* App will free the metadata */
           pme->metadata = malloc(sizeof(metadata_buffer_t));
           if (!pme->metadata) {
-              ALOGE("not enough memory\n");
+              LOGE("not enough memory\n");
               return;
           }
       }
@@ -538,16 +442,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
         mm_app_dump_frame(m_frame, "zsl_main", "yuv", m_frame->frame_idx);
     }*/
 
-    if ( pme->flip_mode && md_frame) {
-        int32_t prmFlip = pme->flip_mode;
-        if (md_frame) {
-            metadata_buffer_t* md_data = (metadata_buffer_t*)(md_frame->buffer);
-            ADD_SET_PARAM_ENTRY_TO_BATCH(md_data, CAM_INTF_PARM_FLIP, prmFlip);
-        }
-    }
-
     if ( pme->enable_reproc && ( NULL != pme->reproc_stream ) ) {
-
 
         if (NULL != md_frame) {
             rc = mm_app_do_reprocess(pme,
@@ -638,7 +533,6 @@ mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -652,7 +546,6 @@ mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
     stream->s_config.stream_info->dim.width = sizeof(metadata_buffer_t);
     stream->s_config.stream_info->dim.height = 1;
-    stream->s_config.stream_info->num_bufs = num_bufs;
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
@@ -663,173 +556,6 @@ mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
 
     return stream;
 }
-
-cam_dimension_t mm_app_get_analysis_stream_dim(
-                                               const mm_camera_test_obj_t *test_obj,
-                                               const cam_dimension_t* preview_dim)
-{
-    cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
-    cam_dimension_t max_analysis_dim =
-        cam_cap->analysis_info[CAM_ANALYSIS_INFO_FD_STILL].analysis_max_res;
-    cam_dimension_t analysis_dim = {0, 0};
-
-    if (preview_dim->width > max_analysis_dim.width ||
-            preview_dim->height > max_analysis_dim.height) {
-        double max_ratio, requested_ratio;
-
-        max_ratio = (double)max_analysis_dim.width / (double)max_analysis_dim.height;
-        requested_ratio = (double)preview_dim->width / (double)preview_dim->height;
-
-        if (max_ratio < requested_ratio) {
-            analysis_dim.width = max_analysis_dim.width;
-            analysis_dim.height = (int32_t)((double)max_analysis_dim.width / requested_ratio);
-        } else {
-            analysis_dim.height = max_analysis_dim.height;
-            analysis_dim.width = (int32_t)((double)max_analysis_dim.height * requested_ratio);
-        }
-        analysis_dim.width &= ~0x1;
-        analysis_dim.height &= ~0x1;
-    } else {
-        analysis_dim = *preview_dim;
-    }
-
-    LOGI("analysis stream dim (%d x %d)\n",  analysis_dim.width, analysis_dim.height);
-    return analysis_dim;
-}
-
-mm_camera_stream_t * mm_app_add_analysis_stream(mm_camera_test_obj_t *test_obj,
-                                               mm_camera_channel_t *channel,
-                                               mm_camera_buf_notify_t stream_cb,
-                                               void *userdata,
-                                               uint8_t num_bufs)
-{
-    int rc = MM_CAMERA_OK;
-    mm_camera_stream_t *stream = NULL;
-    cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
-    cam_dimension_t preview_dim = {0, 0};
-    cam_dimension_t analysis_dim = {0, 0};
-
-    if ((test_obj->preview_resolution.user_input_display_width == 0) ||
-           ( test_obj->preview_resolution.user_input_display_height == 0)) {
-        preview_dim.width = DEFAULT_PREVIEW_WIDTH;
-        preview_dim.height = DEFAULT_PREVIEW_HEIGHT;
-    } else {
-        preview_dim.width = test_obj->preview_resolution.user_input_display_width;
-        preview_dim.height = test_obj->preview_resolution.user_input_display_height;
-    }
-
-    analysis_dim = mm_app_get_analysis_stream_dim(test_obj, &preview_dim);
-    LOGI("analysis stream dimesion: %d x %d\n",
-            analysis_dim.width, analysis_dim.height);
-    if (analysis_dim.width == 0 || analysis_dim.height == 0) {
-        /* FD or PAAF might not be enabled , use preview dim */
-        return NULL;
-    }
-
-    stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        LOGE("add stream failed\n");
-        return NULL;
-    }
-
-    stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
-    stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
-    stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
-    stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
-    stream->s_config.mem_vtbl.user_data = (void *)stream;
-    stream->s_config.stream_cb = stream_cb;
-    stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
-
-    stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
-    memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
-    stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_ANALYSIS;
-    stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
-    stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
-    stream->s_config.stream_info->dim = analysis_dim;
-    stream->s_config.padding_info =
-        cam_cap->analysis_info[CAM_ANALYSIS_INFO_FD_STILL].analysis_padding_info;
-    stream->s_config.stream_info->num_bufs = num_bufs;
-
-    rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
-    if (MM_CAMERA_OK != rc) {
-        LOGE("config preview stream err=%d\n",  rc);
-        return NULL;
-    }
-
-    return stream;
-}
-mm_camera_stream_t * mm_app_add_ZSL_preview_stream(mm_camera_test_obj_t *test_obj,
-                                               mm_camera_channel_t *channel,
-                                               mm_camera_buf_notify_t stream_cb,
-                                               void *userdata,
-                                               uint8_t num_bufs)
-{
-    int rc = MM_CAMERA_OK;
-    mm_camera_stream_t *stream = NULL;
-    cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
-    cam_dimension_t preview_dim = {0, 0};
-    cam_dimension_t analysis_dim = {0, 0};
-
-    if ((test_obj->preview_resolution.user_input_display_width == 0) ||
-           ( test_obj->preview_resolution.user_input_display_height == 0)) {
-        preview_dim.width = DEFAULT_PREVIEW_WIDTH;
-        preview_dim.height = DEFAULT_PREVIEW_HEIGHT;
-    } else {
-        preview_dim.width = test_obj->preview_resolution.user_input_display_width;
-        preview_dim.height = test_obj->preview_resolution.user_input_display_height;
-    }
-    LOGI("preview dimesion: %d x %d\n",  preview_dim.width, preview_dim.height);
-
-    analysis_dim = mm_app_get_analysis_stream_dim(test_obj, &preview_dim);
-    LOGI("analysis stream dimesion: %d x %d\n",
-            analysis_dim.width, analysis_dim.height);
-
-    uint32_t analysis_pp_mask = cam_cap->qcom_supported_feature_mask &
-                                        (CAM_QCOM_FEATURE_SHARPNESS |
-                                         CAM_QCOM_FEATURE_EFFECT |
-                                         CAM_QCOM_FEATURE_DENOISE2D);
-    LOGI("analysis stream pp mask:%x\n",  analysis_pp_mask);
-
-    stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        LOGE("add stream failed\n");
-        return NULL;
-    }
-    stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
-    stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
-    stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
-    stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
-    stream->s_config.mem_vtbl.user_data = (void *)stream;
-    stream->s_config.stream_cb = stream_cb;
-    stream->s_config.stream_cb_sync = NULL;
-    stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
-
-    stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
-    memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
-    stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_PREVIEW;
-    stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
-    stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
-
-    stream->s_config.stream_info->dim.width = preview_dim.width;
-    stream->s_config.stream_info->dim.height = preview_dim.height;
-    stream->s_config.stream_info->num_bufs = num_bufs;
-    stream->s_config.padding_info = cam_cap->padding_info;
-
-    rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
-    if (MM_CAMERA_OK != rc) {
-        LOGE("config preview stream err=%d\n",  rc);
-        return NULL;
-    }
-
-    return stream;
-}
-
 
 mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
                                                mm_camera_channel_t *channel,
@@ -841,7 +567,6 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     mm_camera_stream_t *stream = NULL;
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
     cam_dimension_t preview_dim = {0, 0};
-    cam_dimension_t analysis_dim = {0, 0};
 
     if ((test_obj->preview_resolution.user_input_display_width == 0) ||
            ( test_obj->preview_resolution.user_input_display_height == 0)) {
@@ -853,39 +578,18 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     }
     LOGI("preview dimesion: %d x %d\n",  preview_dim.width, preview_dim.height);
 
-    analysis_dim = mm_app_get_analysis_stream_dim(test_obj, &preview_dim);
-    LOGI("analysis stream dimesion: %d x %d\n",
-            analysis_dim.width, analysis_dim.height);
-
-    uint32_t analysis_pp_mask = cam_cap->qcom_supported_feature_mask &
-                                        (CAM_QCOM_FEATURE_SHARPNESS |
-                                         CAM_QCOM_FEATURE_EFFECT |
-                                         CAM_QCOM_FEATURE_DENOISE2D);
-    LOGI("analysis stream pp mask:%x\n",  analysis_pp_mask);
-
     cam_stream_size_info_t abc ;
     memset (&abc , 0, sizeof (cam_stream_size_info_t));
 
-    if (analysis_dim.width != 0 && analysis_dim.height != 0) {
-      abc.num_streams = 2;
-    } else {
-      abc.num_streams = 1;
-    }
+    abc.num_streams = 1;
     abc.postprocess_mask[0] = 2178;
     abc.stream_sizes[0].width = preview_dim.width;
     abc.stream_sizes[0].height = preview_dim.height;
     abc.type[0] = CAM_STREAM_TYPE_PREVIEW;
 
-    if (analysis_dim.width != 0 && analysis_dim.height != 0) {
-      abc.postprocess_mask[1] = analysis_pp_mask;
-      abc.stream_sizes[1].width = analysis_dim.width;
-      abc.stream_sizes[1].height = analysis_dim.height;
-      abc.type[1] = CAM_STREAM_TYPE_ANALYSIS;
-    }
-
     abc.buffer_info.min_buffers = 10;
     abc.buffer_info.max_buffers = 10;
-    abc.is_type[0] = IS_TYPE_NONE;
+    abc.is_type = IS_TYPE_NONE;
 
     rc = setmetainfoCommand(test_obj, &abc);
     if (rc != MM_CAMERA_OK) {
@@ -902,7 +606,6 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -915,13 +618,9 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
 
-    if (test_obj->enable_EZTune) {
-        stream->s_config.stream_info->pp_config.feature_mask = CAM_QCOM_FEATURE_EZTUNE;
-    }
-
     stream->s_config.stream_info->dim.width = preview_dim.width;
     stream->s_config.stream_info->dim.height = preview_dim.height;
-    stream->s_config.stream_info->num_bufs = num_bufs;
+
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
@@ -944,30 +643,6 @@ mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
     mm_camera_stream_t *stream = NULL;
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
 
-    cam_stream_size_info_t abc ;
-    memset (&abc , 0, sizeof (cam_stream_size_info_t));
-
-    abc.num_streams = 1;
-    abc.postprocess_mask[0] = 0;
-
-    if ( test_obj->buffer_width == 0 || test_obj->buffer_height == 0 ) {
-        abc.stream_sizes[0].width = DEFAULT_SNAPSHOT_WIDTH;
-        abc.stream_sizes[0].height = DEFAULT_SNAPSHOT_HEIGHT;
-    } else {
-        abc.stream_sizes[0].width = (int32_t)test_obj->buffer_width;
-        abc.stream_sizes[0].height = (int32_t)test_obj->buffer_height;
-    }
-    abc.type[0] = CAM_STREAM_TYPE_RAW;
-
-    abc.buffer_info.min_buffers = num_bufs;
-    abc.buffer_info.max_buffers = num_bufs;
-    abc.is_type[0] = IS_TYPE_NONE;
-
-    rc = setmetainfoCommand(test_obj, &abc);
-    if (rc != MM_CAMERA_OK) {
-       LOGE("meta info command failed\n");
-    }
-
     stream = mm_app_add_stream(test_obj, channel);
     if (NULL == stream) {
         LOGE("add stream failed\n");
@@ -976,10 +651,7 @@ mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
 
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
-    stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -1003,7 +675,6 @@ mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
         stream->s_config.stream_info->dim.width = (int32_t)test_obj->buffer_width;
         stream->s_config.stream_info->dim.height = (int32_t)test_obj->buffer_height;
     }
-    stream->s_config.stream_info->num_bufs = num_bufs;
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
@@ -1014,95 +685,6 @@ mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
 
     return stream;
 }
-
-mm_camera_stream_t * mm_app_add_ZSL_snapshot_stream(mm_camera_test_obj_t *test_obj,
-                                                mm_camera_channel_t *channel,
-                                                mm_camera_buf_notify_t stream_cb,
-                                                void *userdata,
-                                                uint8_t num_bufs,
-                                                uint8_t num_burst)
-{
-  int rc = MM_CAMERA_OK;
-    mm_camera_stream_t *stream = NULL;
-    cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
-    cam_stream_size_info_t abc_snap ;
-    memset (&abc_snap , 0, sizeof (cam_stream_size_info_t));
-
-    abc_snap.num_streams = 2;
-    abc_snap.postprocess_mask[1] = 2178;
-    abc_snap.stream_sizes[1].width = DEFAULT_PREVIEW_WIDTH;
-    abc_snap.stream_sizes[1].height = DEFAULT_PREVIEW_HEIGHT;
-    abc_snap.type[1] = CAM_STREAM_TYPE_PREVIEW;
-
-    abc_snap.postprocess_mask[0] = 0;
-    if ( test_obj->buffer_width == 0 || test_obj->buffer_height == 0 ) {
-        abc_snap.stream_sizes[0].width = DEFAULT_SNAPSHOT_WIDTH;
-        abc_snap.stream_sizes[0].height = DEFAULT_SNAPSHOT_HEIGHT;
-    } else {
-        abc_snap.stream_sizes[0].width = test_obj->buffer_width;
-        abc_snap.stream_sizes[0].height = test_obj->buffer_height;
-    }
-    abc_snap.type[0] = CAM_STREAM_TYPE_SNAPSHOT;
-
-    abc_snap.buffer_info.min_buffers = 7;
-    abc_snap.buffer_info.max_buffers = 7;
-    abc_snap.is_type[0] = IS_TYPE_NONE;
-
-    rc = setmetainfoCommand(test_obj, &abc_snap);
-    if (rc != MM_CAMERA_OK) {
-       LOGE("meta info command snapshot failed\n");
-    }
-
-    stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        LOGE("add stream failed\n");
-        return NULL;
-    }
-
-    stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
-    stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
-    stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
-    stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
-    stream->s_config.mem_vtbl.user_data = (void *)stream;
-    stream->s_config.stream_cb = stream_cb;
-    stream->s_config.stream_cb_sync = NULL;
-    stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
-
-    stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
-    memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
-    stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_SNAPSHOT;
-    if (num_burst == 0) {
-        stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
-    } else {
-        stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
-        stream->s_config.stream_info->num_of_burst = num_burst;
-    }
-    stream->s_config.stream_info->fmt = DEFAULT_SNAPSHOT_FORMAT;
-    if ( test_obj->buffer_width == 0 || test_obj->buffer_height == 0 ) {
-        stream->s_config.stream_info->dim.width = DEFAULT_SNAPSHOT_WIDTH;
-        stream->s_config.stream_info->dim.height = DEFAULT_SNAPSHOT_HEIGHT;
-    } else {
-        stream->s_config.stream_info->dim.width = test_obj->buffer_width;
-        stream->s_config.stream_info->dim.height = test_obj->buffer_height;
-    }
-    stream->s_config.stream_info->num_bufs = num_bufs;
-    stream->s_config.padding_info = cam_cap->padding_info;
-    /* Make offset as zero as CPP will not be used  */
-    stream->s_config.padding_info.offset_info.offset_x = 0;
-    stream->s_config.padding_info.offset_info.offset_y = 0;
-
-    rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
-    if (MM_CAMERA_OK != rc) {
-        LOGE("config preview stream err=%d\n",  rc);
-        return NULL;
-    }
-
-    return stream;
-}
-
 
 mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
                                                 mm_camera_channel_t *channel,
@@ -1119,23 +701,18 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
 
     abc_snap.num_streams = 2;
     abc_snap.postprocess_mask[1] = 2178;
-    abc_snap.stream_sizes[1].width  = DEFAULT_PREVIEW_WIDTH;
+    abc_snap.stream_sizes[1].width = DEFAULT_PREVIEW_WIDTH;
     abc_snap.stream_sizes[1].height = DEFAULT_PREVIEW_HEIGHT;
     abc_snap.type[1] = CAM_STREAM_TYPE_POSTVIEW;
 
     abc_snap.postprocess_mask[0] = 0;
-    if ( test_obj->buffer_width == 0 || test_obj->buffer_height == 0 ) {
-        abc_snap.stream_sizes[0].width  = DEFAULT_SNAPSHOT_WIDTH;
-        abc_snap.stream_sizes[0].height = DEFAULT_SNAPSHOT_HEIGHT;
-    } else {
-        abc_snap.stream_sizes[0].width  = test_obj->buffer_width;
-        abc_snap.stream_sizes[0].height = test_obj->buffer_height;
-    }
+    abc_snap.stream_sizes[0].width = DEFAULT_SNAPSHOT_WIDTH;
+    abc_snap.stream_sizes[0].height = DEFAULT_SNAPSHOT_HEIGHT;
     abc_snap.type[0] = CAM_STREAM_TYPE_SNAPSHOT;
 
     abc_snap.buffer_info.min_buffers = 7;
     abc_snap.buffer_info.max_buffers = 7;
-    abc_snap.is_type[0] = IS_TYPE_NONE;
+    abc_snap.is_type = IS_TYPE_NONE;
 
     rc = setmetainfoCommand(test_obj, &abc_snap);
     if (rc != MM_CAMERA_OK) {
@@ -1153,7 +730,6 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -1174,14 +750,10 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
         stream->s_config.stream_info->dim.width = DEFAULT_SNAPSHOT_WIDTH;
         stream->s_config.stream_info->dim.height = DEFAULT_SNAPSHOT_HEIGHT;
     } else {
-        stream->s_config.stream_info->dim.width = test_obj->buffer_width;
-        stream->s_config.stream_info->dim.height = test_obj->buffer_height;
+        stream->s_config.stream_info->dim.width = DEFAULT_SNAPSHOT_WIDTH;
+        stream->s_config.stream_info->dim.height = DEFAULT_SNAPSHOT_HEIGHT;
     }
-    stream->s_config.stream_info->num_bufs = num_bufs;
     stream->s_config.padding_info = cam_cap->padding_info;
-    /* Make offset as zero as CPP will not be used  */
-    stream->s_config.padding_info.offset_info.offset_x = 0;
-    stream->s_config.padding_info.offset_info.offset_y = 0;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     if (MM_CAMERA_OK != rc) {
@@ -1267,7 +839,6 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *stream = NULL;
     mm_camera_stream_t *s_metadata = NULL;
-    mm_camera_stream_t *s_analysis = NULL;
     uint8_t i;
 
     channel =  mm_app_add_preview_channel(test_obj);
@@ -1286,16 +857,6 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
         mm_app_del_channel(test_obj, channel);
         return rc;
     }
-
-    s_analysis = mm_app_add_analysis_stream(test_obj,
-                                            channel,
-                                            NULL,
-                                            (void *)test_obj,
-                                            PREVIEW_BUF_NUM);
-    if (NULL == s_analysis) {
-        LOGE("Analysis Stream could not be added\n");
-    }
-
     rc = mm_app_start_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {
         LOGE("start preview failed rc=%d\n",  rc);
@@ -1350,19 +911,7 @@ int mm_app_start_preview_zsl(mm_camera_test_obj_t *test_obj)
         return -MM_CAMERA_E_GENERAL;
     }
 
-
-    s_main = mm_app_add_ZSL_snapshot_stream(test_obj,
-                                        channel,
-                                        mm_app_snapshot_notify_cb,
-                                        (void *)test_obj,
-                                        PREVIEW_BUF_NUM,
-                                        0);
-    if (NULL == s_main) {
-        LOGE("add main snapshot stream failed\n");
-        mm_app_del_channel(test_obj, channel);
-        return rc;
-    }
-    s_preview = mm_app_add_ZSL_preview_stream(test_obj,
+    s_preview = mm_app_add_preview_stream(test_obj,
                                           channel,
                                           mm_app_preview_notify_cb,
                                           (void *)test_obj,
@@ -1373,6 +922,18 @@ int mm_app_start_preview_zsl(mm_camera_test_obj_t *test_obj)
         return rc;
     }
 
+    s_main = mm_app_add_snapshot_stream(test_obj,
+                                        channel,
+                                        mm_app_snapshot_notify_cb,
+                                        (void *)test_obj,
+                                        PREVIEW_BUF_NUM,
+                                        0);
+    if (NULL == s_main) {
+        LOGE("add main snapshot stream failed\n");
+        mm_app_del_stream(test_obj, channel, s_preview);
+        mm_app_del_channel(test_obj, channel);
+        return rc;
+    }
 
     s_metadata = mm_app_add_metadata_stream(test_obj,
                                             channel,

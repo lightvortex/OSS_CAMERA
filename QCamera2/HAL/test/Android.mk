@@ -30,19 +30,23 @@ LOCAL_CFLAGS += -DUSE_JB_MR1
 endif
 
 LOCAL_C_INCLUDES += \
+    frameworks/base/include/ui \
+    frameworks/base/include/surfaceflinger \
+    frameworks/base/include/camera \
+    frameworks/base/include/media \
     external/skia/include/core \
     external/skia/include/images \
     $(TARGET_OUT_HEADERS)/qcom/display \
-    hardware/qcom/camera/QCamera2/stack/common \
-    hardware/qcom/camera/QCamera2/stack/mm-camera-interface/inc \
+    $(LOCAL_PATH)/../stack/common \
+    frameworks/av/include/media/stagefright \
+    frameworks/native/include/media/openmax \
     $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_MODULE:= camera_test
-LOCAL_VENDOR_MODULE := true
-include $(SDCLANG_COMMON_DEFS)
 LOCAL_MODULE_TAGS:= tests
+LOCAL_VENDOR_MODULE := true
 
 LOCAL_CFLAGS += -Wall -Wextra -Werror -Wno-unused-parameter
 LOCAL_CFLAGS += -O0

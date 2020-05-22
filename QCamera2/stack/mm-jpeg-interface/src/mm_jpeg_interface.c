@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -312,26 +312,26 @@ static int32_t mm_jpeg_intf_compose_mpo(mm_jpeg_mpo_info_t *mpo_info)
  *    @ops: ops table pointer
  *    @mpo_ops: mpo ops table ptr
  *    @picture_size: Max available dim
- *    @jpeg_metadata: Jpeg meta data
+ *    @calibration_data: Static calibration data
  *
  *  Return:
  *       0 failure, success otherwise
  *
  *  Description:
- *       Open a jpeg client. Jpeg meta data will be cached
+ *       Open a jpeg client. Calibration data will be cached
  *       but memory manegement has to be done by the cient.
  *
  **/
 uint32_t jpeg_open(mm_jpeg_ops_t *ops, mm_jpeg_mpo_ops_t *mpo_ops,
   mm_dimension picture_size,
-  cam_jpeg_metadata_t *jpeg_metadata)
+  cam_related_system_calibration_data_t *calibration_data)
 {
   int32_t rc = 0;
   uint32_t clnt_hdl = 0;
   mm_jpeg_obj* jpeg_obj = NULL;
   char prop[PROPERTY_VALUE_MAX];
 
-  property_get("persist.vendor.camera.kpi.debug", prop, "0");
+  property_get("persist.camera.kpi.debug", prop, "0");
   gKpiDebugLevel = atoi(prop);
 
   pthread_mutex_lock(&g_intf_lock);
@@ -347,9 +347,12 @@ uint32_t jpeg_open(mm_jpeg_ops_t *ops, mm_jpeg_mpo_ops_t *mpo_ops,
     /* initialize jpeg obj */
     memset(jpeg_obj, 0, sizeof(mm_jpeg_obj));
 
-    /* by default reuse reproc source buffer*/
+    /* by default reuse reproc source buffer if available */
+    if (mpo_ops == NULL) {
       jpeg_obj->reuse_reproc_buffer = 1;
-
+    } else {
+      jpeg_obj->reuse_reproc_buffer = 0;
+    }
    LOGH("reuse_reproc_buffer %d ",
       jpeg_obj->reuse_reproc_buffer);
 
@@ -358,8 +361,8 @@ uint32_t jpeg_open(mm_jpeg_ops_t *ops, mm_jpeg_mpo_ops_t *mpo_ops,
     jpeg_obj->max_pic_h = picture_size.h;
 
     /*Cache OTP Data for the session*/
-    if (NULL != jpeg_metadata) {
-      jpeg_obj->jpeg_metadata = jpeg_metadata;
+    if (NULL != calibration_data) {
+      jpeg_obj->calibration_data = calibration_data;
     }
 
     rc = mm_jpeg_init(jpeg_obj);

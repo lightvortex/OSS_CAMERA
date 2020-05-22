@@ -31,7 +31,6 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 // Camera dependencies
 #include "mm_qcamera_socket.h"
@@ -563,14 +562,14 @@ int tunning_server_socket_listen(const char* ip_addr, uint16_t port)
   server_addr.addr_in.sin_addr.s_addr = inet_addr(ip_addr);
 
   if (server_addr.addr_in.sin_addr.s_addr == INADDR_NONE) {
-    LOGE(" invalid address.\n");
+    LOGE("[ERR] %s invalid address.\n");
     return -1;
   }
 
   /* Create an AF_INET stream socket to receive incoming connection ON */
   sock_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (sock_fd < 0) {
-    LOGE(" socket failed\n");
+    LOGE("[ERR] %s socket failed\n");
     return sock_fd;
   }
 
@@ -606,7 +605,7 @@ int tunning_server_socket_listen(const char* ip_addr, uint16_t port)
     return sock_fd;
   }
 
-  LOGH("sock_fd: %d, listen at port: %d\n",  sock_fd, port);
+  LOGH("%s. sock_fd: %d, listen at port: %d\n",  sock_fd, port);
 
   return sock_fd;
 }
@@ -663,7 +662,7 @@ void *eztune_proc(void *data)
     /* no timeout */
     result = select(num_fds + 1, &tsfds, NULL, NULL, NULL);
     if (result < 0) {
-      LOGE("select failed: %s\n", strerror(errno));
+      LOGE("[ERR] select failed: %s\n", strerror(errno));
       continue;
     }
 
@@ -677,11 +676,6 @@ void *eztune_proc(void *data)
         &addr_client_inet.addr, &addr_client_len);
       if (client_socket == -1) {
         LOGE("accept failed %s", strerror(errno));
-        continue;
-      }
-
-      if (client_socket >= FD_SETSIZE) {
-        LOGE("client_socket is out of range. client_socket=%d",client_socket);
         continue;
       }
 
@@ -771,10 +765,6 @@ void *eztune_proc(void *data)
         &addr_client_inet.addr, &addr_client_len);
       if (prev_client_socket == -1) {
         LOGE("accept failed %s", strerror(errno));
-        continue;
-      }
-      if (prev_client_socket >= FD_SETSIZE) {
-        LOGE("prev_client_socket is out of range. prev_client_socket=%d",prev_client_socket);
         continue;
       }
 

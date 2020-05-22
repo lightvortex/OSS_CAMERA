@@ -29,7 +29,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // System dependencies
 #include <fcntl.h>
-#include <unistd.h>
 
 // Camera dependencies
 #include "mm_qcamera_app.h"
@@ -101,10 +100,12 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
     cam_format_t fmt = CAM_FORMAT_MAX;
     cam_stream_buf_plane_info_t *buf_planes;
-    cam_stream_size_info_t abc ;
-    memset (&abc , 0, sizeof (cam_stream_size_info_t));
 
-
+    stream = mm_app_add_stream(test_obj, channel);
+    if (NULL == stream) {
+        LOGE("add stream failed\n");
+        return NULL;
+    }
 
     LOGE(" raw_dim w:%d height:%d\n",  cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
     for (i = 0;i < cam_cap->supported_raw_fmt_cnt;i++) {
@@ -113,8 +114,7 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         if (((CAM_FORMAT_BAYER_MIPI_RAW_8BPP_GBRG <= cam_cap->supported_raw_fmts[i]) &&
             (CAM_FORMAT_BAYER_MIPI_RAW_12BPP_BGGR >= cam_cap->supported_raw_fmts[i])) ||
             (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_META_RAW_8BIT) ||
-            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_JPEG_RAW_8BIT) ||
-            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_BAYER_MIPI_RAW_14BPP_BGGR))
+            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_JPEG_RAW_8BIT))
         {
             fmt = cam_cap->supported_raw_fmts[i];
             LOGE(" fmt=%d\n",  fmt);
@@ -126,32 +126,11 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         return NULL;
     }
 
-    abc.num_streams = 1;
-    abc.postprocess_mask[0] = 0;
-    abc.stream_sizes[0].width = cam_cap->raw_dim[0].width;
-    abc.stream_sizes[0].height = cam_cap->raw_dim[0].height;
-    abc.type[0] = CAM_STREAM_TYPE_RAW;
-    abc.buffer_info.min_buffers = num_bufs;
-    abc.buffer_info.max_buffers = num_bufs;
-    abc.is_type[0] = IS_TYPE_NONE;
-
-    rc = setmetainfoCommand(test_obj, &abc);
-    if (rc != MM_CAMERA_OK) {
-       LOGE(" meta info command failed\n");
-    }
-
-    stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        LOGE(" add stream failed\n");
-        return NULL;
-    }
-
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -167,9 +146,8 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
         stream->s_config.stream_info->num_of_burst = num_burst;
     }
-    stream->s_config.stream_info->fmt = DEFAULT_RAW_FORMAT;
-    stream->s_config.stream_info->num_bufs = num_bufs;
-    LOGD(" RAW: w: %d, h: %d ",
+    stream->s_config.stream_info->fmt = fmt;
+    LOGD("RAW: w: %d, h: %d",
        cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
 
     stream->s_config.stream_info->dim.width = cam_cap->raw_dim[0].width;
@@ -213,7 +191,6 @@ mm_camera_stream_t * mm_app_add_rdi_snapshot_stream(mm_camera_test_obj_t *test_o
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -229,7 +206,6 @@ mm_camera_stream_t * mm_app_add_rdi_snapshot_stream(mm_camera_test_obj_t *test_o
         stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
         stream->s_config.stream_info->num_of_burst = num_burst;
     }
-    stream->s_config.stream_info->num_bufs = num_bufs;
     stream->s_config.stream_info->fmt = DEFAULT_SNAPSHOT_FORMAT;
     stream->s_config.stream_info->dim.width = DEFAULT_SNAPSHOT_WIDTH;
     stream->s_config.stream_info->dim.height = DEFAULT_SNAPSHOT_HEIGHT;
@@ -281,8 +257,6 @@ int mm_app_stop_and_del_rdi_channel(mm_camera_test_obj_t *test_obj,
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
     uint8_t i;
-    cam_stream_size_info_t abc ;
-    memset (&abc , 0, sizeof (cam_stream_size_info_t));
 
     rc = mm_app_stop_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {
@@ -300,10 +274,6 @@ int mm_app_stop_and_del_rdi_channel(mm_camera_test_obj_t *test_obj,
     } else {
         LOGE(" num_streams = %d. Should not be more than %d\n",
              channel->num_streams, MAX_STREAM_NUM_IN_BUNDLE);
-    }
-    rc = setmetainfoCommand(test_obj, &abc);
-    if (rc != MM_CAMERA_OK) {
-       LOGE(" meta info command failed\n");
     }
     rc = mm_app_del_channel(test_obj, channel);
     if (MM_CAMERA_OK != rc) {

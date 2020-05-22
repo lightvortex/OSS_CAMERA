@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -69,7 +69,7 @@ static void jpeg_encode_cb(jpeg_job_status_t status,
                          ION_IOC_INV_CACHES);
     }
 
-    mm_app_deallocate_ion_memory(&pme->jpeg_buf);
+    free(pme->jpeg_buf.buf.buffer);
     free(pme->current_job_frames);
     pme->current_job_frames = NULL;
 
@@ -80,6 +80,7 @@ static void jpeg_encode_cb(jpeg_job_status_t status,
 int encodeData(mm_camera_test_obj_t *test_obj, mm_camera_super_buf_t* recvd_frame,
                mm_camera_stream_t *m_stream)
 {
+    cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
 
     int rc = -MM_CAMERA_E_GENERAL;
     mm_jpeg_job_t job;
@@ -100,6 +101,9 @@ int encodeData(mm_camera_test_obj_t *test_obj, mm_camera_super_buf_t* recvd_fram
     // TODO: Rotation should be set according to
     //       sensor&device orientation
     job.encode_job.rotation = 0;
+    if (cam_cap->position == CAM_POSITION_BACK) {
+        job.encode_job.rotation = 270;
+    }
 
     /* fill in main src img encode param */
     job.encode_job.main_dim.src_dim = m_stream->s_config.stream_info->dim;
@@ -113,111 +117,16 @@ int encodeData(mm_camera_test_obj_t *test_obj, mm_camera_super_buf_t* recvd_fram
     /* fill in sink img param */
     job.encode_job.dst_index = 0;
 
-    job.encode_job.hal_version = CAM_HAL_V1;
-    test_obj->mExifParams.sensor_params.sens_type = CAM_SENSOR_RAW;
-    job.encode_job.cam_exif_params = test_obj->mExifParams;
-    job.encode_job.cam_exif_params.debug_params =
-            (mm_jpeg_debug_exif_params_t *) malloc (sizeof(mm_jpeg_debug_exif_params_t));
-
-    if (test_obj->mExifParams.debug_params) {
-        memcpy(job.encode_job.cam_exif_params.debug_params,
-            test_obj->mExifParams.debug_params, (sizeof(mm_jpeg_debug_exif_params_t)));
-    }
-
-    job.encode_job.mobicat_mask = 2;
-
     if (test_obj->metadata != NULL) {
         job.encode_job.p_metadata = test_obj->metadata;
     } else {
         LOGE(" Metadata null, not set for jpeg encoding");
     }
 
-    if (NULL != job.encode_job.p_metadata && (job.encode_job.mobicat_mask > 0)) {
-
-       if (test_obj->mExifParams.debug_params) {
-           memcpy(job.encode_job.cam_exif_params.debug_params,
-                   test_obj->mExifParams.debug_params, (sizeof(mm_jpeg_debug_exif_params_t)));
-
-           /* Save a copy of mobicat params */
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_AEC_INFO] =
-                    job.encode_job.cam_exif_params.cam_3a_params_valid;
-
-            IF_META_AVAILABLE(cam_3a_params_t, ptr_mobicat_aec_params,CAM_INTF_META_AEC_INFO,
-                job.encode_job.p_metadata) {
-                    *ptr_mobicat_aec_params =
-                    job.encode_job.cam_exif_params.cam_3a_params;
-           }
-
-           /* Save a copy of 3A debug params */
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_AE] =
-                    job.encode_job.cam_exif_params.debug_params->ae_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_AWB] =
-                    job.encode_job.cam_exif_params.debug_params->awb_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_AF] =
-                    job.encode_job.cam_exif_params.debug_params->af_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_ASD] =
-                    job.encode_job.cam_exif_params.debug_params->asd_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_STATS] =
-                    job.encode_job.cam_exif_params.debug_params->stats_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_BESTATS] =
-                    job.encode_job.cam_exif_params.debug_params->bestats_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_BHIST] =
-                    job.encode_job.cam_exif_params.debug_params->bhist_debug_params_valid;
-            job.encode_job.p_metadata->is_valid[CAM_INTF_META_EXIF_DEBUG_3A_TUNING] =
-                    job.encode_job.cam_exif_params.debug_params->q3a_tuning_debug_params_valid;
-
-            IF_META_AVAILABLE(cam_ae_exif_debug_t, ptr_statsdebug_ae_data,
-                CAM_INTF_META_EXIF_DEBUG_AE, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_ae_data = 
-                    job.encode_job.cam_exif_params.debug_params->ae_debug_params;
-            }
-            IF_META_AVAILABLE(cam_awb_exif_debug_t, ptr_statsdebug_awb_data,
-                CAM_INTF_META_EXIF_DEBUG_AWB, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_awb_data = 
-                    job.encode_job.cam_exif_params.debug_params->awb_debug_params;
-            }
-            IF_META_AVAILABLE(cam_af_exif_debug_t, ptr_statsdebug_af_data,
-                CAM_INTF_META_EXIF_DEBUG_AF, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_af_data = 
-                    job.encode_job.cam_exif_params.debug_params->af_debug_params;
-            }
-            IF_META_AVAILABLE(cam_asd_exif_debug_t, ptr_statsdebug_asd_data,
-                CAM_INTF_META_EXIF_DEBUG_ASD, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_asd_data =
-                    job.encode_job.cam_exif_params.debug_params->asd_debug_params;
-            }
-            IF_META_AVAILABLE(cam_stats_buffer_exif_debug_t, ptr_statsdebug_stats_buffer_data,
-                CAM_INTF_META_EXIF_DEBUG_STATS, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_stats_buffer_data = 
-                    job.encode_job.cam_exif_params.debug_params->stats_debug_params;
-            }
-            IF_META_AVAILABLE(cam_bestats_buffer_exif_debug_t, ptr_statsdebug_bestats_buffer_data,
-                CAM_INTF_META_EXIF_DEBUG_BESTATS, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_bestats_buffer_data = 
-                    job.encode_job.cam_exif_params.debug_params->bestats_debug_params;
-            }
-            IF_META_AVAILABLE(cam_bhist_buffer_exif_debug_t, ptr_statsdebug_bhist_data,
-                CAM_INTF_META_EXIF_DEBUG_BHIST, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_bhist_data = 
-                    job.encode_job.cam_exif_params.debug_params->bhist_debug_params;
-            }
-            IF_META_AVAILABLE(cam_q3a_tuning_info_t, ptr_statsdebug_3a_tuning_data,
-                CAM_INTF_META_EXIF_DEBUG_3A_TUNING, job.encode_job.p_metadata) {
-                    *ptr_statsdebug_3a_tuning_data = 
-                    job.encode_job.cam_exif_params.debug_params->q3a_tuning_debug_params;
-            }
-        }
-
-    }
-
     rc = test_obj->jpeg_ops.start_job(&job, &test_obj->current_job_id);
     if ( 0 != rc ) {
         free(test_obj->current_job_frames);
         test_obj->current_job_frames = NULL;
-    }
-
-    if (job.encode_job.cam_exif_params.debug_params) {
-        free(job.encode_job.cam_exif_params.debug_params);
     }
 
     return rc;
@@ -249,9 +158,9 @@ int createEncodingSession(mm_camera_test_obj_t *test_obj,
     /* fill in sink img param */
     encode_param.num_dst_bufs = 1;
     encode_param.dest_buf[0].index = 0;
-    encode_param.dest_buf[0].buf_size = test_obj->jpeg_buf.mem_info.size;
-    encode_param.dest_buf[0].buf_vaddr = (uint8_t *) test_obj->jpeg_buf.mem_info.data;
-    encode_param.dest_buf[0].fd = test_obj->jpeg_buf.mem_info.fd;
+    encode_param.dest_buf[0].buf_size = test_obj->jpeg_buf.buf.frame_len;
+    encode_param.dest_buf[0].buf_vaddr = (uint8_t *)test_obj->jpeg_buf.buf.buffer;
+    encode_param.dest_buf[0].fd = test_obj->jpeg_buf.buf.fd;
     encode_param.dest_buf[0].format = MM_JPEG_FMT_YUV;
 
     /* main dimension */
@@ -498,16 +407,18 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     mm_app_cache_ops((mm_camera_app_meminfo_t *)m_frame->mem_info,
                      ION_IOC_CLEAN_INV_CACHES);
 
-    pme->jpeg_buf.mem_info.size = m_frame->frame_len;
+    pme->jpeg_buf.buf.buffer = (uint8_t *)malloc(m_frame->frame_len);
+    if ( NULL == pme->jpeg_buf.buf.buffer ) {
+        LOGE(" error allocating jpeg output buffer");
+        goto error;
+    }
 
-    mm_app_allocate_ion_memory(&pme->jpeg_buf,
-                              (0x1 << CAMERA_ION_FALLBACK_HEAP_ID));
-
+    pme->jpeg_buf.buf.frame_len = m_frame->frame_len;
     /* create a new jpeg encoding session */
     rc = createEncodingSession(pme, m_stream, m_frame);
     if (0 != rc) {
         LOGE(" error creating jpeg session");
-        mm_app_deallocate_ion_memory(&pme->jpeg_buf);
+        free(pme->jpeg_buf.buf.buffer);
         goto error;
     }
 
@@ -515,7 +426,7 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     rc = encodeData(pme, bufs, m_stream);
     if (0 != rc) {
         LOGE(" error creating jpeg session");
-        mm_app_deallocate_ion_memory(&pme->jpeg_buf);
+        free(pme->jpeg_buf.buf.buffer);
         goto error;
     }
 
@@ -588,7 +499,6 @@ mm_camera_stream_t * mm_app_add_postview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -607,7 +517,6 @@ mm_camera_stream_t * mm_app_add_postview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
     stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
     stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
-    stream->s_config.stream_info->num_bufs = num_bufs;
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
@@ -668,8 +577,6 @@ int mm_app_stop_capture_raw(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
     mm_camera_channel_t *ch = NULL;
     int i;
-    cam_stream_size_info_t abc ;
-    memset (&abc , 0, sizeof (cam_stream_size_info_t));
 
     ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
 
@@ -680,10 +587,6 @@ int mm_app_stop_capture_raw(mm_camera_test_obj_t *test_obj)
 
     for ( i = 0 ; i < ch->num_streams ; i++ ) {
         mm_app_del_stream(test_obj, ch, &ch->streams[i]);
-    }
-    rc = setmetainfoCommand(test_obj, &abc);
-    if (rc != MM_CAMERA_OK) {
-       LOGE(" meta info command failed\n");
     }
     mm_app_del_channel(test_obj, ch);
 

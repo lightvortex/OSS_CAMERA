@@ -61,7 +61,7 @@
 #define DEFAULT_VIDEO_HEIGHT      480
 #define DEFAULT_VIDEO_PADDING     CAM_PAD_TO_2K
 #define DEFAULT_SNAPSHOT_FORMAT   CAM_FORMAT_YUV_420_NV21
-#define DEFAULT_RAW_FORMAT        CAM_FORMAT_BAYER_MIPI_RAW_10BPP_GBRG
+#define DEFAULT_RAW_FORMAT        CAM_FORMAT_BAYER_QCOM_RAW_10BPP_GBRG
 
 #define DEFAULT_SNAPSHOT_WIDTH    4160
 #define DEFAULT_SNAPSHOT_HEIGHT   3120
@@ -75,8 +75,6 @@
 #define BACKLIGHT_LEVEL           "205"
 
 #define ENABLE_REPROCESSING       1
-
-#define QCAMERA_DUMP_FRM_PREVIEW  1
 
 #define INVALID_KEY_PRESS 0
 #define BASE_OFFSET  ('Z' - 'A' + 1)
@@ -242,14 +240,9 @@ typedef struct {
     int32_t reproc_sharpness;
     cam_denoise_param_t reproc_wnr;
     int8_t enable_CAC;
-    int8_t enable_EZTune;
-    int8_t enable_ir;
-    int8_t enable_shdr;
-    int32_t flip_mode;
     mm_camera_queue_t pp_frames;
     mm_camera_stream_t *reproc_stream;
     metadata_buffer_t *metadata;
-    mm_jpeg_exif_params_t mExifParams;
     int8_t is_chromatix_reload;
 } mm_camera_test_obj_t;
 
@@ -261,7 +254,7 @@ typedef struct {
   int32_t (*mm_camera_open) (uint8_t camera_idx, mm_camera_vtbl_t **camera_vtbl);
   uint32_t (*jpeg_open)(mm_jpeg_ops_t *ops, mm_jpeg_mpo_ops_t *mpo_ops,
                    mm_dimension picture_size,
-                   cam_jpeg_metadata_t *jpeg_metadata);
+                   cam_related_system_calibration_data_t *calibration_data);
 
 } hal_interface_lib_t;
 
@@ -273,7 +266,6 @@ typedef struct {
 typedef struct {
     uint32_t width;
     uint32_t height;
-    int isZSL;
 } mm_camera_lib_snapshot_params;
 
 typedef enum {
@@ -295,7 +287,6 @@ typedef enum {
     MM_CAMERA_LIB_ZSL_ENABLE,
     MM_CAMERA_LIB_EV,
     MM_CAMERA_LIB_ANTIBANDING,
-    MM_CAMERA_LIB_FLIP,
     MM_CAMERA_LIB_SET_VFE_COMMAND,
     MM_CAMERA_LIB_SET_POSTPROC_COMMAND,
     MM_CAMERA_LIB_SET_3A_COMMAND,
@@ -312,7 +303,6 @@ typedef enum {
     MM_CAMERA_LIB_AEC_FORCE_SNAP_GAIN,
     MM_CAMERA_LIB_AEC_FORCE_SNAP_EXP,
     MM_CAMERA_LIB_WB,
-    MM_CAMERA_LIB_MN_WB,
     MM_CAMERA_LIB_EXPOSURE_METERING,
     MM_CAMERA_LIB_BRIGHTNESS,
     MM_CAMERA_LIB_CONTRAST,
@@ -325,10 +315,6 @@ typedef enum {
     MM_CAMERA_LIB_FPS_RANGE,
     MM_CAMERA_LIB_WNR_ENABLE,
     MM_CAMERA_LIB_SET_TINTLESS,
-    MM_CAMERA_LIB_EZTUNE_ENABLE,
-    MM_CAMERA_LIB_IRMODE,
-    MM_CAMERA_LIB_SHDR_MODE,
-    MM_CAMERA_LIB_SPL_EFFECT,
 } mm_camera_lib_commands;
 
 typedef struct {
@@ -395,8 +381,6 @@ extern int32_t mm_app_stream_deinitbuf(mm_camera_map_unmap_ops_tbl_t *ops_tbl,
 extern int mm_app_cache_ops(mm_camera_app_meminfo_t *mem_info, int cmd);
 extern int32_t mm_app_stream_clean_invalidate_buf(uint32_t index, void *user_data);
 extern int32_t mm_app_stream_invalidate_buf(uint32_t index, void *user_data);
-extern int32_t mm_app_stream_clean_buf(uint32_t index, void *user_data);
-
 extern int mm_app_open(mm_camera_app_t *cam_app,
                        int cam_id,
                        mm_camera_test_obj_t *test_obj);
@@ -454,7 +438,7 @@ extern mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *tes
                                                mm_camera_buf_notify_t stream_cb,
                                                void *userdata,
                                                uint8_t num_bufs);
-extern int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj, mm_camera_lib_snapshot_params *dim);
+extern int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj);
 extern int mm_app_stop_record_preview(mm_camera_test_obj_t *test_obj);
 extern int mm_app_start_record(mm_camera_test_obj_t *test_obj);
 extern int mm_app_stop_record(mm_camera_test_obj_t *test_obj);

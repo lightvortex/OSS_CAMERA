@@ -137,7 +137,6 @@ mm_camera_stream_t * mm_app_add_reprocess_stream_from_source(mm_camera_test_obj_
     stream->s_config.mem_vtbl.clean_invalidate_buf =
       mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
-    stream->s_config.mem_vtbl.clean_buf = mm_app_stream_clean_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.stream_cb_sync = NULL;
@@ -152,7 +151,7 @@ mm_camera_stream_t * mm_app_add_reprocess_stream_from_source(mm_camera_test_obj_
     stream->s_config.stream_info->fmt = source_stream_info->fmt;
     stream->s_config.stream_info->dim = source_stream_info->dim;
     stream->s_config.padding_info = cam_cap->padding_info;
-    stream->s_config.stream_info->num_bufs = num_bufs;
+
 
     stream->s_config.stream_info->reprocess_config.pp_type = CAM_ONLINE_REPROCESS_TYPE;
     stream->s_config.stream_info->reprocess_config.online.input_stream_id = source->s_config.stream_info->stream_svr_id;
@@ -207,8 +206,6 @@ mm_camera_channel_t * mm_app_add_reprocess_channel(mm_camera_test_obj_t *test_ob
     if (test_obj->enable_CAC) {
         pp_config.feature_mask |= CAM_QCOM_FEATURE_CAC;
     }
-
-    pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
 
     uint8_t minStreamBufNum = source_stream->num_of_bufs;
     stream = mm_app_add_reprocess_stream_from_source(test_obj,
